@@ -1,0 +1,49 @@
+name: Sync Codebase Context
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'public/llm-context.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  bundle-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate public/llm-context.txt
+        run: |
+          mkdir -p public
+          echo "# JOSEPHBACAART LIVE CODEBASE SNAPSHOT" > public/llm-context.txt
+          echo "Updated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> public/llm-context.txt
+          echo "========================================" >> public/llm-context.txt
+          for cfg in package.json next.config.ts tsconfig.json; do
+            if [ -f "$cfg" ]; then
+              echo "" >> public/llm-context.txt
+              echo "### FILE: $cfg" >> public/llm-context.txt
+              echo '```' >> public/llm-context.txt
+              cat "$cfg" >> public/llm-context.txt
+              echo "" >> public/llm-context.txt
+              echo '```' >> public/llm-context.txt
+            fi
+          done
+          find src -type f \( -name "*.tsx" -o -name "*.ts" -o -name "*.css" \) | sort | while read -r file; do
+            echo "" >> public/llm-context.txt
+            echo "### FILE: $file" >> public/llm-context.txt
+            echo '```' >> public/llm-context.txt
+            cat "$file" >> public/llm-context.txt
+            echo "" >> public/llm-context.txt
+            echo '```' >> public/llm-context.txt
+          done
+
+      - name: Commit and Push Context Bundle
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/llm-context.txt
+          git diff --staged --quiet || (git commit -m "chore(ci): auto-update llm-context.txt [skip ci]" && git push)
