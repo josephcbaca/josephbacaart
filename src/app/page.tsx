@@ -5,6 +5,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 interface Bulletin {
+  id: string;
   category: string;
   title: string;
   location: string;
@@ -78,19 +79,23 @@ function formatDate(date: string) {
     .toUpperCase();
 }
 
-export default async function Home() {
-  const bulletinContents = await readFile(
-    path.join(process.cwd(), "src", "data", "bulletin.json"),
-    "utf8",
-  );
-  const bulletin = JSON.parse(bulletinContents) as Bulletin;
+function formatBulletinTime(bulletin: Bulletin) {
   const endTime =
     bulletin.endHour === "12" &&
     bulletin.endMinute === "00" &&
     bulletin.endPeriod === "AM"
       ? "MIDNIGHT"
       : formatTime(bulletin.endHour, bulletin.endMinute, bulletin.endPeriod);
-  const time = `${formatTime(bulletin.startHour, bulletin.startMinute, bulletin.startPeriod)} – ${endTime}`;
+
+  return `${formatTime(bulletin.startHour, bulletin.startMinute, bulletin.startPeriod)} – ${endTime}`;
+}
+
+export default async function Home() {
+  const bulletinContents = await readFile(
+    path.join(process.cwd(), "src", "data", "bulletin.json"),
+    "utf8",
+  );
+  const bulletins = JSON.parse(bulletinContents) as Bulletin[];
 
   return (
     <main className="relative min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto flex flex-col justify-between">
@@ -106,7 +111,6 @@ export default async function Home() {
           </Link>
         </nav>
 
-        {/* Brand Emblem & Header */}
         <header className="mb-8 border-b border-[#222222] pb-6">
           <div className="flex items-center justify-between mb-6">
             <svg
@@ -132,54 +136,65 @@ export default async function Home() {
           </p>
         </header>
 
-        {/* Priority Announcement: Add-a-Ball */}
         <section className="mb-10">
           <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#ffb000] mb-3 flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-[#ffb000] animate-pulse" />
             <span>CRITICAL DISPATCH // UPCOMING SHOW</span>
           </div>
 
-          <article className="border-2 border-[#ffffff] bg-[#0c0c0c] p-5 shadow-[4px_4px_0px_0px_#222222] relative overflow-hidden">
-            <div className="flex justify-between items-start text-[10px] font-mono border-b border-[#222222] pb-3 mb-4">
-              <span className="text-black bg-white px-1.5 py-0.5 font-bold tracking-wider">
-                {bulletin.category}
-              </span>
-              <span className="text-[#888888] font-mono">
-                {bulletin.updatedAt}
-              </span>
+          {bulletins.length === 0 ? (
+            <div className="border border-[#222222] bg-[#0a0a0a] p-5 text-xs font-mono text-[#666666]">
+              NO ACTIVE DISPATCHES
             </div>
+          ) : (
+            <div className="space-y-4">
+              {bulletins.map((bulletin) => (
+                <article
+                  key={bulletin.id}
+                  className="border-2 border-[#ffffff] bg-[#0c0c0c] p-5 shadow-[4px_4px_0px_0px_#222222] relative overflow-hidden"
+                >
+                  <div className="flex justify-between items-start gap-3 text-[10px] font-mono border-b border-[#222222] pb-3 mb-4">
+                    <span className="text-black bg-white px-1.5 py-0.5 font-bold tracking-wider">
+                      {bulletin.category}
+                    </span>
+                    <span className="text-right text-[#888888] font-mono">
+                      {bulletin.updatedAt}
+                    </span>
+                  </div>
 
-            <div className="space-y-1 mb-4 font-mono">
-              <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white uppercase">
-                {bulletin.title}
-              </h2>
-              <div className="text-xs text-[#aaaaaa] uppercase tracking-wider">
-                {bulletin.location}
-              </div>
+                  <div className="space-y-1 mb-4 font-mono">
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white uppercase">
+                      {bulletin.title}
+                    </h2>
+                    <div className="text-xs text-[#aaaaaa] uppercase tracking-wider">
+                      {bulletin.location}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-3 border-y border-[#1c1c1c] font-mono text-xs mb-4">
+                    <div>
+                      <span className="text-[#666666] block text-[10px]">DATE:</span>
+                      <span className="text-white font-bold tracking-wide">
+                        {formatDate(bulletin.date)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#666666] block text-[10px]">TIME:</span>
+                      <span className="text-white font-bold tracking-wide">
+                        {formatBulletinTime(bulletin)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs leading-relaxed text-[#b5b5b5] font-mono">
+                    {bulletin.description}
+                  </p>
+                </article>
+              ))}
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-3 border-y border-[#1c1c1c] font-mono text-xs mb-4">
-              <div>
-                <span className="text-[#666666] block text-[10px]">DATE:</span>
-                <span className="text-white font-bold tracking-wide">
-                  {formatDate(bulletin.date)}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#666666] block text-[10px]">TIME:</span>
-                <span className="text-white font-bold tracking-wide">
-                  {time}
-                </span>
-              </div>
-            </div>
-
-            <p className="text-xs leading-relaxed text-[#b5b5b5] font-mono">
-              {bulletin.description}
-            </p>
-          </article>
+          )}
         </section>
 
-        {/* Secondary System Notices */}
         <section className="mb-12">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#666666] mb-4 flex items-center gap-2">
             <span>DISPATCH LOG</span>
@@ -207,7 +222,6 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Walkthrough Gallery Room Links */}
         <section className="mb-12">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#666666] mb-4 flex items-center gap-2">
             <span>INDEX // GALLERY WALKTHROUGH</span>
@@ -244,7 +258,6 @@ export default async function Home() {
         </section>
       </div>
 
-      {/* Terminal Footer */}
       <footer className="pt-6 border-t border-[#222222] flex flex-col md:flex-row justify-between items-start md:items-center text-[10px] font-mono text-[#555555] gap-2">
         <div>LOCATION: FREMONT // SEATTLE &bull; CD NODE</div>
         <div className="flex gap-4">
