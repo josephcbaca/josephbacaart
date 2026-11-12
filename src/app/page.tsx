@@ -1,15 +1,22 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import Link from "next/link";
 
-interface Announcement {
-  id: string;
-  timestamp: string;
-  venue: string;
-  location: string;
+export const dynamic = "force-dynamic";
+
+interface Bulletin {
+  category: string;
   title: string;
+  location: string;
   date: string;
-  time: string;
-  details: string;
-  tag: "LIVE EVENT" | "SYSTEM" | "TRANSMISSION";
+  startHour: string;
+  startMinute: string;
+  startPeriod: string;
+  endHour: string;
+  endMinute: string;
+  endPeriod: string;
+  description: string;
+  updatedAt: string;
 }
 
 interface GalleryRoom {
@@ -20,27 +27,15 @@ interface GalleryRoom {
   description: string;
 }
 
-const PRIMARY_ANNOUNCEMENT: Announcement = {
-  id: "EVT-20261111",
-  timestamp: "2026.11.10 // 11:28 MST",
-  venue: "Add-a-Ball",
-  location: "Fremont, Seattle, WA",
-  title: "LIVE PERFORMANCE // DJ SET",
-  date: "NOVEMBER 11, 2026",
-  time: "8:00 PM – MIDNIGHT",
-  details: "Analog & digital rhythms, direct hardware synthesis, high-impact sonic selection in the basement arcade.",
-  tag: "LIVE EVENT",
-};
-
-const SYSTEM_NOTICES: Omit<Announcement, "venue" | "time">[] = [
+const SYSTEM_NOTICES = [
   {
     id: "SYS-001",
     timestamp: "2026.11.09",
     location: "Global Gateway",
     title: "ROOT DIRECTORY RESTOCK",
     date: "2026.11.09",
-    details: "Legacy frontend overwritten. High-contrast terminal bulletin active. Full gallery room partitions mounting below.",
-    tag: "SYSTEM",
+    details:
+      "Legacy frontend overwritten. High-contrast terminal bulletin active. Full gallery room partitions mounting below.",
   },
 ];
 
@@ -68,12 +63,49 @@ const GALLERY_ROOMS: GalleryRoom[] = [
   },
 ];
 
-export default function Home() {
+function formatTime(hour: string, minute: string, period: string) {
+  return `${Number(hour)}:${minute} ${period}`;
+}
+
+function formatDate(date: string) {
+  return new Date(`${date}T00:00:00Z`)
+    .toLocaleDateString("en-US", {
+      month: "long",
+      day: "2-digit",
+      year: "numeric",
+      timeZone: "UTC",
+    })
+    .toUpperCase();
+}
+
+export default async function Home() {
+  const bulletinContents = await readFile(
+    path.join(process.cwd(), "src", "data", "bulletin.json"),
+    "utf8",
+  );
+  const bulletin = JSON.parse(bulletinContents) as Bulletin;
+  const endTime =
+    bulletin.endHour === "12" &&
+    bulletin.endMinute === "00" &&
+    bulletin.endPeriod === "AM"
+      ? "MIDNIGHT"
+      : formatTime(bulletin.endHour, bulletin.endMinute, bulletin.endPeriod);
+  const time = `${formatTime(bulletin.startHour, bulletin.startMinute, bulletin.startPeriod)} – ${endTime}`;
+
   return (
     <main className="relative min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto flex flex-col justify-between">
       <div className="scanline-beam" />
 
       <div>
+        <nav className="mb-6 flex justify-end gap-5 border-b border-[#222222] pb-3 text-[10px] font-mono tracking-widest">
+          <Link href="/" className="text-[#ffb000]">
+            [BULLETIN]
+          </Link>
+          <Link href="/admin" className="text-[#888888] transition-colors hover:text-white">
+            [ADMIN]
+          </Link>
+        </nav>
+
         {/* Brand Emblem & Header */}
         <header className="mb-8 border-b border-[#222222] pb-6">
           <div className="flex items-center justify-between mb-6">
@@ -110,19 +142,19 @@ export default function Home() {
           <article className="border-2 border-[#ffffff] bg-[#0c0c0c] p-5 shadow-[4px_4px_0px_0px_#222222] relative overflow-hidden">
             <div className="flex justify-between items-start text-[10px] font-mono border-b border-[#222222] pb-3 mb-4">
               <span className="text-black bg-white px-1.5 py-0.5 font-bold tracking-wider">
-                {PRIMARY_ANNOUNCEMENT.tag}
+                {bulletin.category}
               </span>
               <span className="text-[#888888] font-mono">
-                {PRIMARY_ANNOUNCEMENT.timestamp}
+                {bulletin.updatedAt}
               </span>
             </div>
 
             <div className="space-y-1 mb-4 font-mono">
               <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white uppercase">
-                {PRIMARY_ANNOUNCEMENT.venue}
+                {bulletin.title}
               </h2>
               <div className="text-xs text-[#aaaaaa] uppercase tracking-wider">
-                {PRIMARY_ANNOUNCEMENT.location}
+                {bulletin.location}
               </div>
             </div>
 
@@ -130,19 +162,19 @@ export default function Home() {
               <div>
                 <span className="text-[#666666] block text-[10px]">DATE:</span>
                 <span className="text-white font-bold tracking-wide">
-                  {PRIMARY_ANNOUNCEMENT.date}
+                  {formatDate(bulletin.date)}
                 </span>
               </div>
               <div>
                 <span className="text-[#666666] block text-[10px]">TIME:</span>
                 <span className="text-white font-bold tracking-wide">
-                  {PRIMARY_ANNOUNCEMENT.time}
+                  {time}
                 </span>
               </div>
             </div>
 
             <p className="text-xs leading-relaxed text-[#b5b5b5] font-mono">
-              {PRIMARY_ANNOUNCEMENT.details}
+              {bulletin.description}
             </p>
           </article>
         </section>
