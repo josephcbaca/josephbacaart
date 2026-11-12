@@ -1,5 +1,5 @@
 # JOSEPHBACAART LIVE CODEBASE SNAPSHOT
-Updated: 2026-11-12T06:07:16Z
+Updated: 2026-11-12T07:15:43Z
 ========================================
 
 ### FILE: package.json
@@ -94,6 +94,403 @@ export default nextConfig;
 
 ```
 
+### FILE: src/app/admin/page.tsx
+```
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
+
+type Bulletin = {
+  category: string;
+  title: string;
+  location: string;
+  date: string;
+  startHour: string;
+  startMinute: string;
+  startPeriod: string;
+  endHour: string;
+  endMinute: string;
+  endPeriod: string;
+  description: string;
+};
+
+const initialBulletin: Bulletin = {
+  category: "LIVE EVENT",
+  title: "",
+  location: "",
+  date: "",
+  startHour: "08",
+  startMinute: "00",
+  startPeriod: "PM",
+  endHour: "12",
+  endMinute: "00",
+  endPeriod: "AM",
+  description: "",
+};
+
+const hours = Array.from({ length: 12 }, (_, index) =>
+  String(index + 1).padStart(2, "0"),
+);
+const minutes = ["00", "15", "30", "45"];
+const periods = ["AM", "PM"];
+
+export default function AdminPage() {
+  const [bulletin, setBulletin] = useState<Bulletin>(initialBulletin);
+  const [status, setStatus] = useState("LOADING BULLETIN...");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    async function loadBulletin() {
+      try {
+        const response = await fetch("/api/bulletin");
+        if (!response.ok) throw new Error("Unable to load bulletin data.");
+        const data = (await response.json()) as Bulletin;
+        setBulletin(data);
+        setStatus("");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Unable to load bulletin data.");
+      }
+    }
+
+    void loadBulletin();
+  }, []);
+
+  function updateField<K extends keyof Bulletin>(key: K, value: Bulletin[K]) {
+    setBulletin((current) => ({ ...current, [key]: value }));
+  }
+
+  async function publish(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSaving(true);
+    setStatus("PUBLISHING BULLETIN...");
+
+    try {
+      const response = await fetch("/api/bulletin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bulletin),
+      });
+      const result = (await response.json()) as {
+        bulletin?: Bulletin;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) throw new Error(result.error ?? "Unable to publish bulletin.");
+      if (result.bulletin) setBulletin(result.bulletin);
+      setStatus(result.message ?? "BULLETIN PUBLISHED.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Unable to publish bulletin.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function renderTimeFields(prefix: "start" | "end", label: string) {
+    const hourKey = `${prefix}Hour` as const;
+    const minuteKey = `${prefix}Minute` as const;
+    const periodKey = `${prefix}Period` as const;
+
+    return (
+      <fieldset className="min-w-0">
+        <legend className="mb-2 text-[10px] tracking-[0.2em] text-[#888888]">
+          {label}
+        </legend>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { key: hourKey, options: hours, label: "HOUR" },
+            { key: minuteKey, options: minutes, label: "MINUTE" },
+            { key: periodKey, options: periods, label: "PERIOD" },
+          ].map(({ key, options, label: fieldLabel }) => (
+            <label key={key} className={labelClass}>
+              {label} {fieldLabel}
+              <select
+                value={bulletin[key]}
+                onChange={(event) => updateField(key, event.target.value)}
+                className={fieldClass}
+              >
+                {options.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+
+  const fieldClass =
+    "mt-2 w-full border border-[#222222] bg-[#080808] px-3 py-2.5 text-sm text-[#ededed] placeholder:text-[#555555] focus:border-[#ffb000] focus:outline-none";
+  const labelClass = "block text-[10px] tracking-[0.2em] text-[#888888]";
+
+  return (
+    <main className="min-h-screen bg-[#050505] px-4 py-8 font-mono text-[#ededed] md:px-8">
+      <div className="mx-auto max-w-3xl">
+        <nav className="mb-10 flex flex-wrap items-center justify-between gap-4 border-b border-[#222222] pb-5 text-[10px] tracking-[0.15em]">
+          <span className="text-[#888888]">SYS // ADMIN CONSOLE</span>
+          <div className="flex flex-wrap gap-5">
+            <Link href="/admin" className="text-[#ffb000]">
+              [01. BULLETIN BOARD]
+            </Link>
+            <Link href="/" className="text-[#888888] transition-colors hover:text-white">
+              &lt;- RETURN TO TERMINAL
+            </Link>
+          </div>
+        </nav>
+
+        <header className="mb-8">
+          <p className="mb-2 text-[10px] tracking-[0.25em] text-[#ffb000]">
+            CONTROL PANEL // DISPATCH
+          </p>
+          <h1 className="text-2xl font-bold tracking-wider">BULLETIN BOARD</h1>
+        </header>
+
+        <form
+          onSubmit={publish}
+          className="space-y-6 border border-[#222222] bg-[#080808] p-5 md:p-8"
+        >
+          <label className={labelClass}>
+            CATEGORY
+            <select
+              value={bulletin.category}
+              onChange={(event) => updateField("category", event.target.value)}
+              className={fieldClass}
+            >
+              {["LIVE ROTATIONS", "LIVE EVENT", "MIXED NUTS"].map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={labelClass}>
+            HEADLINE / VENUE TITLE
+            <input
+              type="text"
+              value={bulletin.title}
+              onChange={(event) => updateField("title", event.target.value)}
+              placeholder="ADD-A-BALL"
+              required
+              className={fieldClass}
+            />
+          </label>
+
+          <label className={labelClass}>
+            LOCATION
+            <input
+              type="text"
+              value={bulletin.location}
+              onChange={(event) => updateField("location", event.target.value)}
+              placeholder="FREMONT, SEATTLE, WA"
+              required
+              className={fieldClass}
+            />
+          </label>
+
+          <label className={labelClass}>
+            DATE
+            <input
+              type="date"
+              value={bulletin.date}
+              onChange={(event) => updateField("date", event.target.value)}
+              required
+              className={`${fieldClass} [color-scheme:dark]`}
+            />
+          </label>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {renderTimeFields("start", "START TIME")}
+            {renderTimeFields("end", "END TIME")}
+          </div>
+
+          <label className={labelClass}>
+            EVENT DESCRIPTION
+            <textarea
+              rows={4}
+              value={bulletin.description}
+              onChange={(event) => updateField("description", event.target.value)}
+              required
+              className={`${fieldClass} resize-y`}
+            />
+          </label>
+
+          <div className="flex flex-col gap-4 border-t border-[#222222] pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="border border-[#ffb000] bg-[#ffb000] px-4 py-3 text-xs font-bold tracking-[0.12em] text-black transition-colors hover:bg-transparent hover:text-[#ffb000] disabled:cursor-wait disabled:opacity-60"
+            >
+              {isSaving ? "PUBLISHING..." : "PUBLISH BULLETIN UPDATE"}
+            </button>
+            <p role="status" aria-live="polite" className="text-[10px] text-[#ffb000]">
+              {status}
+            </p>
+          </div>
+        </form>
+      </div>
+    </main>
+  );
+}
+
+```
+
+### FILE: src/app/api/bulletin/route.ts
+```
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+const bulletinPath = path.join(process.cwd(), "src", "data", "bulletin.json");
+const githubApiUrl =
+  "https://api.github.com/repos/josephcbaca/josephbacaart/contents/src/data/bulletin.json";
+
+type Bulletin = {
+  category: string;
+  title: string;
+  location: string;
+  date: string;
+  startHour: string;
+  startMinute: string;
+  startPeriod: string;
+  endHour: string;
+  endMinute: string;
+  endPeriod: string;
+  description: string;
+  updatedAt: string;
+};
+
+function getTimestamp() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Phoenix",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${value("year")}.${value("month")}.${value("day")} // ${value("hour")}:${value("minute")} MST`;
+}
+
+function isBulletin(value: unknown): value is Bulletin {
+  if (!value || typeof value !== "object") return false;
+  const bulletin = value as Record<string, unknown>;
+
+  return [
+    "category",
+    "title",
+    "location",
+    "date",
+    "startHour",
+    "startMinute",
+    "startPeriod",
+    "endHour",
+    "endMinute",
+    "endPeriod",
+    "description",
+  ].every((key) => typeof bulletin[key] === "string");
+}
+
+async function commitBulletin(bulletin: Bulletin, token: string) {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  const currentResponse = await fetch(githubApiUrl, { headers });
+  if (!currentResponse.ok) {
+    throw new Error(
+      `GitHub read failed (${currentResponse.status}): ${await currentResponse.text()}`,
+    );
+  }
+
+  const currentFile = (await currentResponse.json()) as { sha: string };
+  const content = Buffer.from(`${JSON.stringify(bulletin, null, 2)}\n`).toString(
+    "base64",
+  );
+  const updateResponse = await fetch(githubApiUrl, {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "Update bulletin board",
+      content,
+      sha: currentFile.sha,
+      branch: "main",
+    }),
+  });
+
+  if (!updateResponse.ok) {
+    throw new Error(
+      `GitHub update failed (${updateResponse.status}): ${await updateResponse.text()}`,
+    );
+  }
+}
+
+export async function GET() {
+  const contents = await readFile(bulletinPath, "utf8");
+  return Response.json(JSON.parse(contents) as Bulletin);
+}
+
+export async function POST(request: Request) {
+  let incoming: unknown;
+  try {
+    incoming = await request.json();
+  } catch {
+    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+
+  if (!isBulletin(incoming)) {
+    return Response.json({ error: "Bulletin fields are incomplete or invalid." }, { status: 400 });
+  }
+
+  const bulletin: Bulletin = { ...incoming, updatedAt: getTimestamp() };
+  const token = process.env.GITHUB_TOKEN;
+
+  let localWriteError: unknown;
+  try {
+    await writeFile(bulletinPath, `${JSON.stringify(bulletin, null, 2)}\n`, "utf8");
+  } catch (error) {
+    localWriteError = error;
+  }
+
+  if (token) {
+    try {
+      await commitBulletin(bulletin, token);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown GitHub API error.";
+      const localMessage =
+        localWriteError instanceof Error
+          ? ` The local write also failed: ${localWriteError.message}`
+          : "";
+      return Response.json({ error: `${message}${localMessage}` }, { status: 502 });
+    }
+
+    if (localWriteError) {
+      return Response.json({
+        bulletin,
+        message: "Published to GitHub; this runtime could not update its local file.",
+      });
+    }
+  } else if (localWriteError) {
+    const message =
+      localWriteError instanceof Error
+        ? localWriteError.message
+        : "Unable to write bulletin file.";
+    return Response.json({ error: message }, { status: 500 });
+  }
+
+  return Response.json({ bulletin, message: "Bulletin published successfully." });
+}
+
+```
+
 ### FILE: src/app/globals.css
 ```
 @tailwind base;
@@ -182,18 +579,25 @@ export default function RootLayout({
 
 ### FILE: src/app/page.tsx
 ```
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import Link from "next/link";
 
-interface Announcement {
-  id: string;
-  timestamp: string;
-  venue: string;
-  location: string;
+export const dynamic = "force-dynamic";
+
+interface Bulletin {
+  category: string;
   title: string;
+  location: string;
   date: string;
-  time: string;
-  details: string;
-  tag: "LIVE EVENT" | "SYSTEM" | "TRANSMISSION";
+  startHour: string;
+  startMinute: string;
+  startPeriod: string;
+  endHour: string;
+  endMinute: string;
+  endPeriod: string;
+  description: string;
+  updatedAt: string;
 }
 
 interface GalleryRoom {
@@ -204,27 +608,15 @@ interface GalleryRoom {
   description: string;
 }
 
-const PRIMARY_ANNOUNCEMENT: Announcement = {
-  id: "EVT-20261111",
-  timestamp: "2026.11.10 // 11:28 MST",
-  venue: "Add-a-Ball",
-  location: "Fremont, Seattle, WA",
-  title: "LIVE PERFORMANCE // DJ SET",
-  date: "NOVEMBER 11, 2026",
-  time: "8:00 PM – MIDNIGHT",
-  details: "Analog & digital rhythms, direct hardware synthesis, high-impact sonic selection in the basement arcade.",
-  tag: "LIVE EVENT",
-};
-
-const SYSTEM_NOTICES: Omit<Announcement, "venue" | "time">[] = [
+const SYSTEM_NOTICES = [
   {
     id: "SYS-001",
     timestamp: "2026.11.09",
     location: "Global Gateway",
     title: "ROOT DIRECTORY RESTOCK",
     date: "2026.11.09",
-    details: "Legacy frontend overwritten. High-contrast terminal bulletin active. Full gallery room partitions mounting below.",
-    tag: "SYSTEM",
+    details:
+      "Legacy frontend overwritten. High-contrast terminal bulletin active. Full gallery room partitions mounting below.",
   },
 ];
 
@@ -252,12 +644,49 @@ const GALLERY_ROOMS: GalleryRoom[] = [
   },
 ];
 
-export default function Home() {
+function formatTime(hour: string, minute: string, period: string) {
+  return `${Number(hour)}:${minute} ${period}`;
+}
+
+function formatDate(date: string) {
+  return new Date(`${date}T00:00:00Z`)
+    .toLocaleDateString("en-US", {
+      month: "long",
+      day: "2-digit",
+      year: "numeric",
+      timeZone: "UTC",
+    })
+    .toUpperCase();
+}
+
+export default async function Home() {
+  const bulletinContents = await readFile(
+    path.join(process.cwd(), "src", "data", "bulletin.json"),
+    "utf8",
+  );
+  const bulletin = JSON.parse(bulletinContents) as Bulletin;
+  const endTime =
+    bulletin.endHour === "12" &&
+    bulletin.endMinute === "00" &&
+    bulletin.endPeriod === "AM"
+      ? "MIDNIGHT"
+      : formatTime(bulletin.endHour, bulletin.endMinute, bulletin.endPeriod);
+  const time = `${formatTime(bulletin.startHour, bulletin.startMinute, bulletin.startPeriod)} – ${endTime}`;
+
   return (
     <main className="relative min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto flex flex-col justify-between">
       <div className="scanline-beam" />
 
       <div>
+        <nav className="mb-6 flex justify-end gap-5 border-b border-[#222222] pb-3 text-[10px] font-mono tracking-widest">
+          <Link href="/" className="text-[#ffb000]">
+            [BULLETIN]
+          </Link>
+          <Link href="/admin" className="text-[#888888] transition-colors hover:text-white">
+            [ADMIN]
+          </Link>
+        </nav>
+
         {/* Brand Emblem & Header */}
         <header className="mb-8 border-b border-[#222222] pb-6">
           <div className="flex items-center justify-between mb-6">
@@ -294,19 +723,19 @@ export default function Home() {
           <article className="border-2 border-[#ffffff] bg-[#0c0c0c] p-5 shadow-[4px_4px_0px_0px_#222222] relative overflow-hidden">
             <div className="flex justify-between items-start text-[10px] font-mono border-b border-[#222222] pb-3 mb-4">
               <span className="text-black bg-white px-1.5 py-0.5 font-bold tracking-wider">
-                {PRIMARY_ANNOUNCEMENT.tag}
+                {bulletin.category}
               </span>
               <span className="text-[#888888] font-mono">
-                {PRIMARY_ANNOUNCEMENT.timestamp}
+                {bulletin.updatedAt}
               </span>
             </div>
 
             <div className="space-y-1 mb-4 font-mono">
               <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white uppercase">
-                {PRIMARY_ANNOUNCEMENT.venue}
+                {bulletin.title}
               </h2>
               <div className="text-xs text-[#aaaaaa] uppercase tracking-wider">
-                {PRIMARY_ANNOUNCEMENT.location}
+                {bulletin.location}
               </div>
             </div>
 
@@ -314,19 +743,19 @@ export default function Home() {
               <div>
                 <span className="text-[#666666] block text-[10px]">DATE:</span>
                 <span className="text-white font-bold tracking-wide">
-                  {PRIMARY_ANNOUNCEMENT.date}
+                  {formatDate(bulletin.date)}
                 </span>
               </div>
               <div>
                 <span className="text-[#666666] block text-[10px]">TIME:</span>
                 <span className="text-white font-bold tracking-wide">
-                  {PRIMARY_ANNOUNCEMENT.time}
+                  {time}
                 </span>
               </div>
             </div>
 
             <p className="text-xs leading-relaxed text-[#b5b5b5] font-mono">
-              {PRIMARY_ANNOUNCEMENT.details}
+              {bulletin.description}
             </p>
           </article>
         </section>
